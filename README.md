@@ -5,7 +5,6 @@ A backend system for a Cryptocurrency P2P Exchange, developed using Node.js, Exp
 ---
 
 ## Part 1: ER Diagram
-> **Note:** Please export your ER Diagram from draw.io, name it `er-diagram.png`, and place it in this root folder so it displays below.
 
 ![ER Diagram](./crypto-exchange-er-diagram.png)
 
