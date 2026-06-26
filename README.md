@@ -1,4 +1,4 @@
-# Crypto P2P Exchange Backend
+# Crypto Exchange Backend
 
 A backend system for a Cryptocurrency P2P Exchange, developed using Node.js, Express, Prisma ORM, and PostgreSQL. It fulfills all the requirements of the crypto exchange backend assessment.
 
