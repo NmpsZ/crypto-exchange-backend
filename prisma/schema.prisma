@@ -1,0 +1,201 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  active
+  suspended
+  banned
+}
+
+enum CurrencyType {
+  fiat
+  crypto
+}
+
+enum PaymentMethodType {
+  bank_transfer
+  promptpay
+  other
+}
+
+enum AdvertisementType {
+  buy
+  sell
+}
+
+enum AdvertisementStatus {
+  active
+  paused
+  completed
+  cancelled
+}
+
+enum TradeStatus {
+  pending_payment
+  paid
+  completed
+  disputed
+  cancelled
+}
+
+enum TransferType {
+  internal
+  external
+}
+
+enum TransferStatus {
+  pending
+  confirmed
+  failed
+}
+
+enum TransactionType {
+  deposit
+  withdraw
+  trade_buy
+  trade_sell
+  transfer_in
+  transfer_out
+  fee
+}
+
+model User {
+  id              BigInt          @id @default(autoincrement())
+  email           String          @unique
+  password_hash   String
+  full_name       String
+  phone           String
+  status          UserStatus      @default(active)
+  created_at      DateTime        @default(now())
+  updated_at      DateTime        @updatedAt
+  wallets         Wallet[]
+  paymentMethods  PaymentMethod[]
+  advertisements  Advertisement[]
+  tradesAsBuyer   Trade[]         @relation("TradeBuyer")
+  tradesAsSeller  Trade[]         @relation("TradeSeller")
+
+  @@map("users")
+}
+
+model Currency {
+  id                       BigInt          @id @default(autoincrement())
+  code                     String          @unique
+  name                     String
+  type                     CurrencyType
+  decimal_places           Int
+  wallets                  Wallet[]
+  cryptoAdvertisements     Advertisement[] @relation("AdvertisementCryptoCurrency")
+  fiatAdvertisements       Advertisement[] @relation("AdvertisementFiatCurrency")
+
+  @@map("currencies")
+}
+
+model Wallet {
+  id                  BigInt        @id @default(autoincrement())
+  user_id             BigInt
+  currency_id         BigInt
+  balance             Decimal       @default(0) @db.Decimal(30, 10)
+  locked_balance      Decimal       @default(0) @db.Decimal(30, 10)
+  address             String?
+  created_at          DateTime      @default(now())
+  updated_at          DateTime      @updatedAt
+  user                User          @relation(fields: [user_id], references: [id])
+  currency            Currency      @relation(fields: [currency_id], references: [id])
+  transactions        Transaction[]
+  outgoingTransfers   Transfer[]    @relation("TransferFromWallet")
+  incomingTransfers   Transfer[]    @relation("TransferToWallet")
+
+  @@unique([user_id, currency_id])
+  @@map("wallets")
+}
+
+model PaymentMethod {
+  id              BigInt            @id @default(autoincrement())
+  user_id         BigInt
+  type            PaymentMethodType
+  account_name    String
+  account_number  String
+  bank_name       String?
+  user            User              @relation(fields: [user_id], references: [id])
+  advertisements  Advertisement[]
+
+  @@map("payment_methods")
+}
+
+model Advertisement {
+  id                  BigInt              @id @default(autoincrement())
+  user_id             BigInt
+  crypto_currency_id  BigInt
+  fiat_currency_id    BigInt
+  payment_method_id   BigInt
+  type                AdvertisementType
+  price               Decimal             @db.Decimal(30, 10)
+  total_amount        Decimal             @db.Decimal(30, 10)
+  available_amount    Decimal             @db.Decimal(30, 10)
+  min_limit           Decimal             @db.Decimal(30, 10)
+  max_limit           Decimal             @db.Decimal(30, 10)
+  status              AdvertisementStatus @default(active)
+  created_at          DateTime            @default(now())
+  user                User                @relation(fields: [user_id], references: [id])
+  cryptoCurrency      Currency            @relation("AdvertisementCryptoCurrency", fields: [crypto_currency_id], references: [id])
+  fiatCurrency        Currency            @relation("AdvertisementFiatCurrency", fields: [fiat_currency_id], references: [id])
+  paymentMethod       PaymentMethod       @relation(fields: [payment_method_id], references: [id])
+  trades              Trade[]
+
+  @@map("advertisements")
+}
+
+model Trade {
+  id                BigInt        @id @default(autoincrement())
+  advertisement_id  BigInt
+  buyer_id          BigInt
+  seller_id         BigInt
+  crypto_amount     Decimal       @db.Decimal(30, 10)
+  fiat_amount       Decimal       @db.Decimal(30, 10)
+  price             Decimal       @db.Decimal(30, 10)
+  status            TradeStatus   @default(pending_payment)
+  payment_deadline  DateTime
+  created_at        DateTime      @default(now())
+  completed_at      DateTime?
+  advertisement     Advertisement @relation(fields: [advertisement_id], references: [id])
+  buyer             User          @relation("TradeBuyer", fields: [buyer_id], references: [id])
+  seller            User          @relation("TradeSeller", fields: [seller_id], references: [id])
+
+  @@map("trades")
+}
+
+model Transfer {
+  id                   BigInt         @id @default(autoincrement())
+  from_wallet_id       BigInt
+  to_wallet_id         BigInt?
+  to_external_address  String?
+  type                 TransferType
+  amount               Decimal        @db.Decimal(30, 10)
+  fee                  Decimal        @default(0) @db.Decimal(30, 10)
+  status               TransferStatus @default(pending)
+  created_at           DateTime       @default(now())
+  fromWallet           Wallet         @relation("TransferFromWallet", fields: [from_wallet_id], references: [id])
+  toWallet             Wallet?        @relation("TransferToWallet", fields: [to_wallet_id], references: [id])
+
+  @@map("transfers")
+}
+
+model Transaction {
+  id             BigInt          @id @default(autoincrement())
+  wallet_id      BigInt
+  type           TransactionType
+  reference_type String
+  reference_id   BigInt
+  amount         Decimal         @db.Decimal(30, 10)
+  balance_after  Decimal         @db.Decimal(30, 10)
+  created_at     DateTime        @default(now())
+  wallet         Wallet          @relation(fields: [wallet_id], references: [id])
+
+  @@map("transactions")
+}
